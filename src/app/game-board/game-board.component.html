@@ -1,0 +1,17 @@
+<div class="game-container">
+  <div class="score">Score: {{ score }}</div>
+  <div class="game-board">
+    <div class="row" *ngFor="let row of getBoard(); let y = index">
+      <div
+        class="cell"
+        *ngFor="let cell of row; let x = index"
+        [class.snake]="isSnake(x, y)"
+        [class.food]="isFood(x, y)"
+      ></div>
+    </div>
+  </div>
+  <div class="game-over" *ngIf="gameOver">
+    <h2>Game Over!</h2>
+    <button (click)="startGame()">Play Again</button>
+  </div>
+</div>
