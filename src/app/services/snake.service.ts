@@ -1,9 +1,13 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { Injectable, signal, computed } from '@angular/core';
+import { Point } from '../models/point';
 
-export interface Position {
-  x: number;
-  y: number;
+export type Direction = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT';
+
+interface GameState {
+  snake: Point[];
+  food: Point;
+  score: number;
+  gameOver: boolean;
 }
 
 @Injectable({
@@ -11,57 +15,54 @@ export interface Position {
 })
 export class SnakeService {
   private readonly BOARD_SIZE = 20;
-  private snake: Position[] = [];
-  private food: Position = { x: 0, y: 0 };
-  private direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT' = 'RIGHT';
-  private gameOver = false;
-  private score = 0;
+  private readonly INITIAL_SNAKE: Point[] = [
+    { x: 10, y: 10 },
+    { x: 10, y: 11 },
+    { x: 10, y: 12 },
+  ];
 
-  public gameState$ = new BehaviorSubject<{
-    snake: Position[];
-    food: Position;
-    gameOver: boolean;
-    score: number;
-  }>({ snake: [], food: { x: 0, y: 0 }, gameOver: false, score: 0 });
+  private currentDirection = signal<Direction>('UP');
+  private gameStateSignal = signal<GameState>({
+    snake: this.INITIAL_SNAKE,
+    food: { x: 5, y: 5 },
+    score: 0,
+    gameOver: false,
+  });
+
+  gameState = computed(() => this.gameStateSignal());
 
   constructor() {
-    this.initGame();
+    this.gameStateSignal.update((state) => ({
+      ...state,
+      food: this.generateFood(state.snake),
+    }));
   }
 
-  initGame() {
-    this.snake = [
-      { x: 5, y: 5 },
-      { x: 4, y: 5 },
-      { x: 3, y: 5 },
-    ];
-    this.direction = 'RIGHT';
-    this.gameOver = false;
-    this.score = 0;
-    this.generateFood();
-    this.updateGameState();
-  }
+  private generateFood(currentSnake: Point[]): Point {
+    const food: Point = {
+      x: Math.floor(Math.random() * this.BOARD_SIZE),
+      y: Math.floor(Math.random() * this.BOARD_SIZE),
+    };
 
-  private generateFood() {
-    let newFood: Position;
-    do {
-      newFood = {
-        x: Math.floor(Math.random() * this.BOARD_SIZE),
-        y: Math.floor(Math.random() * this.BOARD_SIZE),
-      };
-    } while (
-      this.snake.some(
-        (segment) => segment.x === newFood.x && segment.y === newFood.y
+    if (
+      currentSnake.some(
+        (segment) => segment.x === food.x && segment.y === food.y
       )
-    );
-    this.food = newFood;
+    ) {
+      return this.generateFood(currentSnake);
+    }
+
+    return food;
   }
 
-  moveSnake() {
-    if (this.gameOver) return;
+  moveSnake(): void {
+    const currentState = this.gameStateSignal();
+    if (currentState.gameOver) return;
 
-    const head = { ...this.snake[0] };
+    const head = { ...currentState.snake[0] };
+    const direction = this.currentDirection();
 
-    switch (this.direction) {
+    switch (direction) {
       case 'UP':
         head.y--;
         break;
@@ -76,35 +77,43 @@ export class SnakeService {
         break;
     }
 
-    // Check for collisions
-    if (
-      head.x < 0 ||
-      head.x >= this.BOARD_SIZE ||
-      head.y < 0 ||
-      head.y >= this.BOARD_SIZE ||
-      this.snake.some((segment) => segment.x === head.x && segment.y === head.y)
-    ) {
-      this.gameOver = true;
-      this.updateGameState();
+    if (this.isCollision(head)) {
+      this.gameStateSignal.update((state) => ({ ...state, gameOver: true }));
       return;
     }
 
-    // Add new head
-    this.snake.unshift(head);
+    const newSnake = [head, ...currentState.snake];
+    let newScore = currentState.score;
+    let newFood = currentState.food;
 
-    // Check if food is eaten
-    if (head.x === this.food.x && head.y === this.food.y) {
-      this.score += 10;
-      this.generateFood();
+    if (head.x === currentState.food.x && head.y === currentState.food.y) {
+      newScore++;
+      newFood = this.generateFood(newSnake);
     } else {
-      // Remove tail if no food was eaten
-      this.snake.pop();
+      newSnake.pop();
     }
 
-    this.updateGameState();
+    this.gameStateSignal.set({
+      snake: newSnake,
+      food: newFood,
+      score: newScore,
+      gameOver: false,
+    });
   }
 
-  changeDirection(newDirection: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT') {
+  startGame(): void {
+    const initialState = {
+      snake: [...this.INITIAL_SNAKE],
+      food: this.generateFood(this.INITIAL_SNAKE),
+      score: 0,
+      gameOver: false,
+    };
+    this.gameStateSignal.set(initialState);
+    this.currentDirection.set('UP');
+  }
+
+  changeDirection(newDirection: Direction): void {
+    const current = this.currentDirection();
     const opposites = {
       UP: 'DOWN',
       DOWN: 'UP',
@@ -112,21 +121,23 @@ export class SnakeService {
       RIGHT: 'LEFT',
     };
 
-    if (opposites[newDirection] !== this.direction) {
-      this.direction = newDirection;
+    if (opposites[newDirection] !== current) {
+      this.currentDirection.set(newDirection);
     }
   }
 
-  private updateGameState() {
-    this.gameState$.next({
-      snake: [...this.snake],
-      food: { ...this.food },
-      gameOver: this.gameOver,
-      score: this.score,
-    });
-  }
+  private isCollision(head: Point): boolean {
+    if (
+      head.x < 0 ||
+      head.x >= this.BOARD_SIZE ||
+      head.y < 0 ||
+      head.y >= this.BOARD_SIZE
+    ) {
+      return true;
+    }
 
-  getBoardSize() {
-    return this.BOARD_SIZE;
+    return this.gameStateSignal().snake.some(
+      (segment) => segment.x === head.x && segment.y === head.y
+    );
   }
 }

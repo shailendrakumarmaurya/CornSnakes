@@ -1,17 +1,47 @@
 <div class="game-container">
-  <div class="score">Score: {{ score }}</div>
-  <div class="game-board">
-    <div class="row" *ngFor="let row of getBoard(); let y = index">
-      <div
-        class="cell"
-        *ngFor="let cell of row; let x = index"
-        [class.snake]="isSnake(x, y)"
-        [class.food]="isFood(x, y)"
-      ></div>
+  <h1 class="game-title">CornSnakes</h1>
+
+  <div class="game-content">
+    <div class="game-board">
+      <div class="row" *ngFor="let row of getBoard(); let y = index">
+        <div
+          class="cell"
+          *ngFor="let cell of row; let x = index"
+          [class.snake]="isSnake(x, y)"
+          [class.food]="isFood(x, y)"
+        ></div>
+      </div>
+    </div>
+
+    <div class="info-panel">
+      <div class="score">Score: {{ score() }}</div>
+
+      <div class="controls">
+        <button class="control-btn up" (click)="handleDirection('UP')">
+          ↑
+        </button>
+        <div class="horizontal-controls">
+          <button class="control-btn left" (click)="handleDirection('LEFT')">
+            ←
+          </button>
+          <button class="control-btn down" (click)="handleDirection('DOWN')">
+            ↓
+          </button>
+          <button class="control-btn right" (click)="handleDirection('RIGHT')">
+            →
+          </button>
+        </div>
+      </div>
+
+      <div class="instructions" *ngIf="!gameOver()">
+        <p>Use arrow keys or buttons to control the snake</p>
+      </div>
     </div>
   </div>
-  <div class="game-over" *ngIf="gameOver">
+
+  <div class="game-over" *ngIf="gameOver()">
     <h2>Game Over!</h2>
+    <p class="final-score">Final Score: {{ score() }}</p>
     <button (click)="startGame()">Play Again</button>
   </div>
 </div>

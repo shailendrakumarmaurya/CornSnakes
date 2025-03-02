@@ -1,1 +1,15 @@
-/* You can add global styles to this file, and also import other style files */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --snake-color: #00ff95;
+  --snake-glow: rgba(0, 255, 149, 0.8);
+  --food-color: #ff3366;
+  --food-glow: rgba(255, 51, 102, 0.8);
+  --board-bg: #0a0a0a;
+  --cell-border: #1f1f1f;
+  --cell-bg: #141414;
+}
